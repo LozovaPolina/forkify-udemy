@@ -607,11 +607,10 @@ const controlRecipes = async function() {
         (0, _recipeViewJsDefault.default).renderError();
     }
 };
-// controlRecipes();
-[
-    "hashchange",
-    "load"
-].forEach((ev)=>window.addEventListener(ev, controlRecipes));
+const init = function() {
+    (0, _recipeViewJsDefault.default).addHendlerRender(controlRecipes);
+};
+init();
 
 },{"core-js/modules/esnext.map.group-by.js":"3AR1K","core-js/modules/esnext.symbol.dispose.js":"b9ez5","core-js/modules/web.immediate.js":"49tUX","regenerator-runtime/runtime":"dXNgZ","./model.js":"Y4A21","./views/recipeView.js":"l60JC","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"3AR1K":[function(require,module,exports) {
 "use strict";
@@ -2818,6 +2817,12 @@ class RecipeView {
         this.#clear();
         this.#parentElem.insertAdjacentHTML("afterbegin", markup);
     };
+    addHendlerRender(handler) {
+        [
+            "hashchange",
+            "load"
+        ].forEach((ev)=>window.addEventListener(ev, handler));
+    }
     renderError = ()=>{
         const markup = `
             <div class="error">

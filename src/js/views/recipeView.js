@@ -29,7 +29,10 @@ class RecipeView {
     `;
         this.#clear();
         this.#parentElem.insertAdjacentHTML('afterbegin', markup);
-    };
+    }
+    addHendlerRender(handler) {
+        ['hashchange', 'load'].forEach(ev => window.addEventListener(ev, handler));
+    }
     renderError = () => {
         const markup = `
             <div class="error">
