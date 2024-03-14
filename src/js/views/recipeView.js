@@ -5,6 +5,8 @@ const [icons] = new URL('../../img/icons.svg', import.meta.url).href.split('?');
 class RecipeView {
     #parentElem = document.querySelector('.recipe');
     #data;
+    #errorMessage = 'We could not find that recipe. Please try another one!';
+    #message = '';
     constructor() {
 
     }
@@ -19,21 +21,21 @@ class RecipeView {
     #clear() {
         this.#parentElem.innerHTML = '';
     }
-    renderSpinner = () => {
+    renderSpinner() {
         const markup = `
-        <div class="spinner">
-          <svg>
-            <use href="${icons}#icon-loader"></use>
-          </svg>
-        </div>
-    `;
+            <div class="spinner">
+            <svg>
+                <use href="${icons}#icon-loader"></use>
+            </svg>
+            </div>
+        `;
         this.#clear();
         this.#parentElem.insertAdjacentHTML('afterbegin', markup);
     }
     addHendlerRender(handler) {
         ['hashchange', 'load'].forEach(ev => window.addEventListener(ev, handler));
     }
-    renderError = () => {
+    renderError(message = this.#errorMessage) {
         const markup = `
             <div class="error">
                 <div>
@@ -41,12 +43,26 @@ class RecipeView {
                         <use href="${icons}#icon-alert-triangle"></use>
                     </svg>
                 </div>
-                <p>No recipes found for your query. Please try again!</p>
+                <p>${message}</p>
             </div> 
-    `;
+        `;
         this.#clear();
         this.#parentElem.insertAdjacentHTML('afterbegin', markup);
-    };
+    }
+    renderMessage(message = this.#message) {
+        const markup = `
+            <div class="message">
+            <div>
+                <svg>
+                <use href="${icons}#icon-smile"></use>
+                </svg>
+            </div>
+            <p>${message}</p>
+            </div>
+        `;
+        this.#clear();
+        this.#parentElem.insertAdjacentHTML('afterbegin', markup);
+    }
 
     #generateMarkup() {
         return `
