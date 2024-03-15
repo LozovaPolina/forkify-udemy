@@ -592,6 +592,13 @@ var _runtime = require("regenerator-runtime/runtime");
 var _modelJs = require("./model.js");
 var _recipeViewJs = require("./views/recipeView.js");
 var _recipeViewJsDefault = parcelHelpers.interopDefault(_recipeViewJs);
+var _searchViewJs = require("./views/searchView.js");
+var _searchViewJsDefault = parcelHelpers.interopDefault(_searchViewJs);
+var _resultsViewJs = require("./views/resultsView.js");
+var _resultsViewJsDefault = parcelHelpers.interopDefault(_resultsViewJs);
+// if (module.hot) {
+//     module.hot.accept();
+// }
 // https://forkify-api.herokuapp.com/v2
 ///////////////////////////////////////
 const controlRecipes = async function() {
@@ -607,12 +614,28 @@ const controlRecipes = async function() {
         (0, _recipeViewJsDefault.default).renderError();
     }
 };
+const constrolSearchResults = async function() {
+    try {
+        (0, _resultsViewJsDefault.default).renderSpinner();
+        // get search query
+        const query = (0, _searchViewJsDefault.default).getQuery();
+        if (!query) return;
+        // load search result
+        await _modelJs.loadSearchResults(query);
+        // render results
+        (0, _resultsViewJsDefault.default).render(_modelJs.state.search.results);
+    } catch (err) {
+        (0, _resultsViewJsDefault.default).renderError();
+    }
+};
+// constrolSearchResults();
 const init = function() {
     (0, _recipeViewJsDefault.default).addHendlerRender(controlRecipes);
+    (0, _searchViewJsDefault.default).addHendlerSearch(constrolSearchResults);
 };
 init();
 
-},{"core-js/modules/esnext.map.group-by.js":"3AR1K","core-js/modules/esnext.symbol.dispose.js":"b9ez5","core-js/modules/web.immediate.js":"49tUX","regenerator-runtime/runtime":"dXNgZ","./model.js":"Y4A21","./views/recipeView.js":"l60JC","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"3AR1K":[function(require,module,exports) {
+},{"core-js/modules/esnext.map.group-by.js":"3AR1K","core-js/modules/esnext.symbol.dispose.js":"b9ez5","core-js/modules/web.immediate.js":"49tUX","regenerator-runtime/runtime":"dXNgZ","./model.js":"Y4A21","./views/recipeView.js":"l60JC","./views/searchView.js":"9OQAM","./views/resultsView.js":"cSbZE","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"3AR1K":[function(require,module,exports) {
 "use strict";
 // TODO: Remove from `core-js@4`
 require("4d92d9132913bacd");
@@ -2700,14 +2723,19 @@ var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "state", ()=>state);
 parcelHelpers.export(exports, "loadRecipe", ()=>loadRecipe);
+parcelHelpers.export(exports, "loadSearchResults", ()=>loadSearchResults);
 var _configJs = require("./config.js");
 var _helpersJs = require("./helpers.js");
 const state = {
-    recipe: {}
+    recipe: {},
+    search: {
+        query: "",
+        results: []
+    }
 };
 const loadRecipe = async function(id) {
     try {
-        const data = await (0, _helpersJs.getJSON)(`${(0, _configJs.API_URL)}/${id}`);
+        const data = await (0, _helpersJs.getJSON)(`${(0, _configJs.API_URL)}${id}`);
         const { recipe } = data.data;
         state.recipe = {
             id: recipe.id,
@@ -2723,13 +2751,29 @@ const loadRecipe = async function(id) {
         throw err;
     }
 };
+const loadSearchResults = async function(query) {
+    try {
+        state.search.query = query;
+        const data = await (0, _helpersJs.getJSON)(`${(0, _configJs.API_URL)}?search=${query}`);
+        state.search.results = data.data.recipes.map((rec)=>{
+            return {
+                id: rec.id,
+                title: rec.title,
+                publisher: rec.puplisher,
+                image: rec.image_url
+            };
+        });
+    } catch (err) {
+        throw err;
+    }
+};
 
 },{"./config.js":"k5Hzs","./helpers.js":"hGI1E","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"k5Hzs":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "API_URL", ()=>API_URL);
 parcelHelpers.export(exports, "TIMEOUT_SEC", ()=>TIMEOUT_SEC);
-const API_URL = "https://forkify-api.herokuapp.com/api/v2/recipes";
+const API_URL = "https://forkify-api.herokuapp.com/api/v2/recipes/";
 const TIMEOUT_SEC = 10;
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"gkKU3":[function(require,module,exports) {
@@ -2791,74 +2835,27 @@ const getJSON = async function(url) {
 },{"./config.js":"k5Hzs","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"l60JC":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "icons", ()=>icons);
 var _fractional = require("fractional");
+var _viewJs = require("./View.js");
+var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
 const [icons] = new URL(require("c11290a51c3b65b5")).href.split("?");
-class RecipeView {
-    #parentElem = document.querySelector(".recipe");
-    #data;
-    #errorMessage = "We could not find that recipe. Please try another one!";
-    #message = "";
-    constructor(){}
-    render(data) {
-        this.#data = data;
-        const markup = this.#generateMarkup();
-        this.#clear();
-        this.#parentElem.insertAdjacentHTML("afterbegin", markup);
-    }
-    #clear() {
-        this.#parentElem.innerHTML = "";
-    }
-    renderSpinner() {
-        const markup = `
-            <div class="spinner">
-            <svg>
-                <use href="${icons}#icon-loader"></use>
-            </svg>
-            </div>
-        `;
-        this.#clear();
-        this.#parentElem.insertAdjacentHTML("afterbegin", markup);
-    }
+class RecipeView extends (0, _viewJsDefault.default) {
+    _parentElem = document.querySelector(".recipe");
+    _errorMessage = "We could not find that recipe. Please try another one!";
+    _message = "";
     addHendlerRender(handler) {
         [
             "hashchange",
             "load"
         ].forEach((ev)=>window.addEventListener(ev, handler));
     }
-    renderError(message = this.#errorMessage) {
-        const markup = `
-            <div class="error">
-                <div>
-                    <svg>
-                        <use href="${icons}#icon-alert-triangle"></use>
-                    </svg>
-                </div>
-                <p>${message}</p>
-            </div> 
-        `;
-        this.#clear();
-        this.#parentElem.insertAdjacentHTML("afterbegin", markup);
-    }
-    renderMessage(message = this.#message) {
-        const markup = `
-            <div class="message">
-            <div>
-                <svg>
-                <use href="${icons}#icon-smile"></use>
-                </svg>
-            </div>
-            <p>${message}</p>
-            </div>
-        `;
-        this.#clear();
-        this.#parentElem.insertAdjacentHTML("afterbegin", markup);
-    }
-    #generateMarkup() {
+    _generateMarkup() {
         return `
             <figure class="recipe__fig">
-            <img src="${this.#data.image}" alt="${this.#data.title}" class="recipe__img" />
+            <img src="${this._data.image}" alt="${this._data.title}" class="recipe__img" />
             <h1 class="recipe__title">
-                <span>${this.#data.title}</span>
+                <span>${this._data.title}</span>
             </h1>
             </figure>
 
@@ -2867,14 +2864,14 @@ class RecipeView {
                 <svg class="recipe__info-icon">
                 <use href="${icons}#icon-clock"></use>
                 </svg>
-                <span class="recipe__info-data recipe__info-data--minutes">${this.#data.cookingTime}</span>
+                <span class="recipe__info-data recipe__info-data--minutes">${this._data.cookingTime}</span>
                 <span class="recipe__info-text">minutes</span>
             </div>
             <div class="recipe__info">
                 <svg class="recipe__info-icon">
                 <use href="${icons}#icon-users"></use>
                 </svg>
-                <span class="recipe__info-data recipe__info-data--people">${this.#data.servings}</span>
+                <span class="recipe__info-data recipe__info-data--people">${this._data.servings}</span>
                 <span class="recipe__info-text">servings</span>
 
                 <div class="recipe__info-buttons">
@@ -2892,9 +2889,7 @@ class RecipeView {
             </div>
 
             <div class="recipe__user-generated">
-                <svg>
-                <use href="${icons}#icon-user"></use>
-                </svg>
+
             </div>
             <button class="btn--round">
                 <svg class="">
@@ -2905,20 +2900,20 @@ class RecipeView {
                 <div class="recipe__ingredients">
                 <h2 class="heading--2">Recipe ingredients</h2>
                 <ul class="recipe__ingredient-list">
-                    ${this.#data.ingredients.map(this.#generateMarkipIngredient).join("")}
+                    ${this._data.ingredients.map(this._generateMarkipIngredient).join("")}
                 </ul>
             </div>
 
             <div class="recipe__directions">
             <h2 class="heading--2">How to cook it</h2>
             <p class="recipe__directions-text">
-                This this.#data was carefully designed and tested by
-                <span class="recipe__publisher">${this.#data.publisher}</span>. Please check out
+                This this._data was carefully designed and tested by
+                <span class="recipe__publisher">${this._data.publisher}</span>. Please check out
                 directions at their website.
             </p>
             <a
                 class="btn--small recipe__btn"
-                href="${this.#data.sourseUrl}"
+                href="${this._data.sourseUrl}"
                 target="_blank"
             >
                 <span>Directions</span>
@@ -2929,7 +2924,7 @@ class RecipeView {
             </div>
         `;
     }
-    #generateMarkipIngredient(ing) {
+    _generateMarkipIngredient(ing) {
         return `
             <li class="recipe__ingredient">
                 <svg class="recipe__icon">
@@ -2946,7 +2941,7 @@ class RecipeView {
 }
 exports.default = new RecipeView();
 
-},{"fractional":"3SU56","c11290a51c3b65b5":"cMpiy","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"3SU56":[function(require,module,exports) {
+},{"fractional":"3SU56","./View.js":"5cUXS","c11290a51c3b65b5":"cMpiy","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"3SU56":[function(require,module,exports) {
 /*
 fraction.js
 A Javascript fraction library.
@@ -3199,7 +3194,51 @@ Fraction.primeFactors = function(n) {
 };
 module.exports.Fraction = Fraction;
 
-},{}],"cMpiy":[function(require,module,exports) {
+},{}],"5cUXS":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+var _recipeViewJs = require("./recipeView.js");
+class View {
+    _data;
+    render(data) {
+        if (!data || Array.isArray(data) && data.length === 0) return this.renderError();
+        this._data = data;
+        const markup = this._generateMarkup();
+        this._clear();
+        this._parentElem.insertAdjacentHTML("afterbegin", markup);
+    }
+    _clear() {
+        this._parentElem.innerHTML = "";
+    }
+    renderSpinner() {
+        const markup = `
+            <div class="spinner">
+            <svg>
+                <use href="${(0, _recipeViewJs.icons)}#icon-loader"></use>
+            </svg>
+            </div>
+        `;
+        this._clear();
+        this._parentElem.insertAdjacentHTML("afterbegin", markup);
+    }
+    renderError(message = this._errorMessage) {
+        const markup = `
+            <div class="error">
+                <div>
+                    <svg>
+                        <use href="${(0, _recipeViewJs.icons)}#icon-alert-triangle"></use>
+                    </svg>
+                </div>
+                <p>${message}</p>
+            </div> 
+        `;
+        this._clear();
+        this._parentElem.insertAdjacentHTML("afterbegin", markup);
+    }
+}
+exports.default = View;
+
+},{"./recipeView.js":"l60JC","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"cMpiy":[function(require,module,exports) {
 module.exports = require("17cff2908589362b").getBundleURL("hWUTQ") + "icons.21bad73c.svg" + "?" + Date.now();
 
 },{"17cff2908589362b":"lgJ39"}],"lgJ39":[function(require,module,exports) {
@@ -3237,6 +3276,75 @@ exports.getBundleURL = getBundleURLCached;
 exports.getBaseURL = getBaseURL;
 exports.getOrigin = getOrigin;
 
-},{}]},["hycaY","aenu9"], "aenu9", "parcelRequire7e89")
+},{}],"9OQAM":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+var _viewJs = require("./View.js");
+var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
+class SearchView {
+    _parentElem = document.querySelector(".search");
+    getQuery() {
+        const query = this._parentElem.querySelector(".search__field").value;
+        this._cleatInput();
+        return query;
+    }
+    _cleatInput() {
+        this._parentElem.querySelector(".search__field").value = "";
+    }
+    addHendlerSearch(handler) {
+        this._parentElem.addEventListener("submit", (e)=>{
+            e.preventDefault();
+            handler();
+        });
+    }
+    renderMessage(message = this._message) {
+        const markup = `
+            <div class="message">
+            <div>
+                <svg>
+                <use href="${icons}#icon-smile"></use>
+                </svg>
+            </div>
+            <p>${message}</p>
+            </div>
+        `;
+        this._clear();
+        this._parentElem.insertAdjacentHTML("afterbegin", markup);
+    }
+}
+exports.default = new SearchView();
+
+},{"./View.js":"5cUXS","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"cSbZE":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+var _viewJs = require("./View.js");
+var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
+var _recipeViewJs = require("./recipeView.js");
+class ResultsView extends (0, _viewJsDefault.default) {
+    _parentElem = document.querySelector(".results");
+    _errorMessage = "No recipes found for your query! Please try again ;)";
+    _message = "";
+    _generateMarkup() {
+        return this._data.map(this._generateMarkupPreview).join("");
+    }
+    _generateMarkupPreview(result) {
+        return ` 
+                <li class="preview">
+                    <a class="preview__link" href="#${result.id}">
+                        <figure class="preview__fig">
+                            <img src="${result.image}" alt="${result.title}" />
+                        </figure>
+                        <div class="preview__data">
+                            <h4 class="preview__title">${result.title}</h4>
+                            <p class="preview__publisher">${result.publisher ?? "The Pioneer Woman"}</p>
+                        </div>
+                    </a>
+                </li>
+            `;
+    }
+}
+exports.default = new ResultsView();
+
+},{"./View.js":"5cUXS","./recipeView.js":"l60JC","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}]},["hycaY","aenu9"], "aenu9", "parcelRequire7e89")
 
 //# sourceMappingURL=index.e37f48ea.js.map
