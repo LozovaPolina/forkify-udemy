@@ -608,6 +608,8 @@ const controlRecipes = async function() {
         const id = window.location.hash.slice(1);
         if (!id) return;
         (0, _recipeViewJsDefault.default).renderSpinner();
+        // Update results view to mark selected search result
+        (0, _resultsViewJsDefault.default).update(_modelJs.getSearchResutsPage());
         // loading recipe
         await _modelJs.loadRecipe(id);
         //  rendering recipe
@@ -616,7 +618,7 @@ const controlRecipes = async function() {
         (0, _recipeViewJsDefault.default).renderError();
     }
 };
-const constrolSearchResults = async function() {
+const controlSearchResults = async function() {
     try {
         (0, _resultsViewJsDefault.default).renderSpinner();
         // get search query
@@ -633,15 +635,20 @@ const constrolSearchResults = async function() {
     }
 };
 const controlPagination = function(goToPage) {
-    console.log(goToPage);
     (0, _resultsViewJsDefault.default).render(_modelJs.getSearchResutsPage(goToPage));
     (0, _paginationViewJsDefault.default).render(_modelJs.state.search);
 };
-// constrolSearchResults();
+const controlServings = function(newServings) {
+    //Update the recipe servings (in state)
+    _modelJs.updateServings(newServings);
+    //Update the recipe view
+    (0, _recipeViewJsDefault.default).update(_modelJs.state.recipe);
+};
 const init = function() {
-    (0, _recipeViewJsDefault.default).addHendlerRender(controlRecipes);
-    (0, _searchViewJsDefault.default).addHendlerSearch(constrolSearchResults);
-    (0, _paginationViewJsDefault.default).addHendlerCkick(controlPagination);
+    (0, _recipeViewJsDefault.default).addHandlerRender(controlRecipes);
+    (0, _recipeViewJsDefault.default).addHandlerUpdateServings(controlServings);
+    (0, _searchViewJsDefault.default).addHandlerSearch(controlSearchResults);
+    (0, _paginationViewJsDefault.default).addHandlerCkick(controlPagination);
 };
 init();
 
@@ -2735,6 +2742,7 @@ parcelHelpers.export(exports, "state", ()=>state);
 parcelHelpers.export(exports, "loadRecipe", ()=>loadRecipe);
 parcelHelpers.export(exports, "loadSearchResults", ()=>loadSearchResults);
 parcelHelpers.export(exports, "getSearchResutsPage", ()=>getSearchResutsPage);
+parcelHelpers.export(exports, "updateServings", ()=>updateServings);
 var _configJs = require("./config.js");
 var _helpersJs = require("./helpers.js");
 const state = {
@@ -2785,6 +2793,13 @@ const getSearchResutsPage = function(page = state.search.page) {
     const start = (page - 1) * state.search.resultsPerPage;
     const end = page * state.search.resultsPerPage;
     return state.search.results.slice(start, end);
+};
+const updateServings = function(newServings) {
+    state.recipe.ingredients.forEach((ing)=>{
+        ing.quantity = ing.quantity * newServings / state.recipe.servings;
+    //newQt = oldQt * newServings / oldServings // 2 * 8 / 4 = 4
+    });
+    state.recipe.servings = newServings;
 };
 
 },{"./config.js":"k5Hzs","./helpers.js":"hGI1E","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"k5Hzs":[function(require,module,exports) {
@@ -2865,11 +2880,20 @@ class RecipeView extends (0, _viewJsDefault.default) {
     _parentElem = document.querySelector(".recipe");
     _errorMessage = "We could not find that recipe. Please try another one!";
     _message = "";
-    addHendlerRender(handler) {
+    addHandlerRender(handler) {
         [
             "hashchange",
             "load"
         ].forEach((ev)=>window.addEventListener(ev, handler));
+    }
+    addHandlerUpdateServings(handler) {
+        this._parentElem.addEventListener("click", function(e) {
+            e.preventDefault();
+            const btn = e.target.closest(".btn--increase-servings");
+            if (!btn) return;
+            const { servings } = btn.dataset;
+            if (+servings > 0) handler(+servings);
+        });
     }
     _generateMarkup() {
         return `
@@ -2896,12 +2920,12 @@ class RecipeView extends (0, _viewJsDefault.default) {
                 <span class="recipe__info-text">servings</span>
 
                 <div class="recipe__info-buttons">
-                <button class="btn--tiny btn--increase-servings">
+                <button data-servings="${this._data.servings - 1}" class="btn--tiny btn--increase-servings">
                     <svg>
                     <use href="${icons}#icon-minus-circle"></use>
                     </svg>
                 </button>
-                <button class="btn--tiny btn--increase-servings">
+                <button data-servings="${this._data.servings + 1}" class="btn--tiny btn--increase-servings">
                     <svg>
                     <use href="${icons}#icon-plus-circle"></use>
                     </svg>
@@ -3228,6 +3252,24 @@ class View {
         this._clear();
         this._parentElem.insertAdjacentHTML("afterbegin", markup);
     }
+    update(data) {
+        this._data = data;
+        const newMarkup = this._generateMarkup();
+        const newDom = document.createRange().createContextualFragment(newMarkup);
+        const newElements = Array.from(newDom.querySelectorAll("*"));
+        const curElements = Array.from(this._parentElem.querySelectorAll("*"));
+        console.log(newElements);
+        newElements.forEach((newEl, i)=>{
+            const curEl = curElements[i];
+            // console.log(curEl, newEl.isEqualNode(curEl));
+            // console.log(newEl, newEl.firstChild);
+            //Updates changed TEXT
+            if (!newEl.isEqualNode(curEl) && newEl.firstChild?.nodeValue.trim() !== "") // console.log(newEl.firstChild, newEl.firstChild.nodeValue.trim());
+            curEl.textContent = newEl.textContent;
+            //Updates changed ATTRIBUTES
+            if (!newEl.isEqualNode(curEl)) Array.from(newEl.attributes).forEach((attr)=>curEl.setAttribute(attr.name, attr.value));
+        });
+    }
     _clear() {
         this._parentElem.innerHTML = "";
     }
@@ -3312,7 +3354,7 @@ class SearchView {
     _cleatInput() {
         this._parentElem.querySelector(".search__field").value = "";
     }
-    addHendlerSearch(handler) {
+    addHandlerSearch(handler) {
         this._parentElem.addEventListener("submit", (e)=>{
             e.preventDefault();
             handler();
@@ -3349,9 +3391,10 @@ class ResultsView extends (0, _viewJsDefault.default) {
         return this._data.map(this._generateMarkupPreview).join("");
     }
     _generateMarkupPreview(result) {
+        const id = window.location.hash.slice(1);
         return ` 
                 <li class="preview">
-                    <a class="preview__link" href="#${result.id}">
+                    <a class="preview__link ${id === result.id ? "preview__link--active" : ""}"  href="#${result.id}">
                         <figure class="preview__fig">
                             <img src="${result.image}" alt="${result.title}" />
                         </figure>
@@ -3377,7 +3420,6 @@ class PaginationView extends (0, _viewJsDefault.default) {
     _generateMarkup() {
         const numPages = Math.ceil(this._data.results.length / this._data.resultsPerPage);
         const curPage = this._data.page;
-        console.log(numPages);
         // Page 1, and there are other pages
         if (curPage === 1 && numPages > 1) return `
                 <button data-goto="${curPage + 1}"class="btn--inline pagination__btn--next">
@@ -3413,7 +3455,7 @@ class PaginationView extends (0, _viewJsDefault.default) {
             `;
         return "";
     }
-    addHendlerCkick(handler) {
+    addHandlerCkick(handler) {
         this._parentElem.addEventListener("click", (e)=>{
             e.preventDefault();
             const btn = e.target.closest(".btn--inline");

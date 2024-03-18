@@ -1,19 +1,19 @@
 import View from './View.js';
 
-class SearchView  {
+class SearchView {
     _parentElem = document.querySelector('.search');
 
 
     getQuery() {
         const query = this._parentElem.querySelector('.search__field').value;
         this._cleatInput();
-        return query; 
+        return query;
     }
 
     _cleatInput() {
         this._parentElem.querySelector('.search__field').value = '';
     }
-    addHendlerSearch(handler) {
+    addHandlerSearch(handler) {
         this._parentElem.addEventListener('submit', (e) => {
             e.preventDefault();
             handler();

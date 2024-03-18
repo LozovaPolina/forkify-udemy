@@ -9,8 +9,6 @@ class PaginationView extends View {
     _generateMarkup() {
         const numPages = Math.ceil(this._data.results.length / this._data.resultsPerPage);
         const curPage = this._data.page;
-        console.log(numPages);
-
         // Page 1, and there are other pages
 
         if (curPage === 1 && numPages > 1) {
@@ -54,7 +52,7 @@ class PaginationView extends View {
         return '';
     }
 
-    addHendlerCkick(handler) {
+    addHandlerCkick(handler) {
         this._parentElem.addEventListener('click', (e) => {
             e.preventDefault();
             const btn = e.target.closest('.btn--inline');
